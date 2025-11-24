@@ -76,17 +76,23 @@ export async function storeTicketMetadata(
   }
 
   const storageInfo = await response.json();
+  console.log("[Walrus] storageInfo", storageInfo);
 
   // Mirror the logic from the official example: handle both
   // newlyCreated and alreadyCertified shapes.
   if ("alreadyCertified" in storageInfo) {
-    return storageInfo.alreadyCertified.blobId as string;
+    const blobId = storageInfo.alreadyCertified.blobId as string;
+    console.log("[Walrus] using alreadyCertified blobId", blobId);
+    return blobId;
   }
 
   if ("newlyCreated" in storageInfo) {
-    return storageInfo.newlyCreated.blobObject.blobId as string;
+    const blobId = storageInfo.newlyCreated.blobObject.blobId as string;
+    console.log("[Walrus] using newlyCreated blobId", blobId);
+    return blobId;
   }
 
+  console.error("[Walrus] unexpected store response shape", storageInfo);
   throw new Error("Unexpected Walrus response shape when storing blob");
 }
 
@@ -110,6 +116,7 @@ export async function fetchTicketMetadata(
 
   // We expect the blob to contain the JSON we previously stored.
   const text = await response.text();
+  console.log("[Walrus] fetch blob response", blobId, text);
 
   try {
     const parsed = JSON.parse(text) as TicketMetadata;

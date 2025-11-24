@@ -190,16 +190,19 @@ If these are not set, the defaults above are used.
     that the blob exists on the Walrus aggregator.
 
 - **What is partially implemented**
-  - On reconnect, the app queries Sui for all `namitix_ticket::Ticket` objects
-    owned by the connected address and restores them into My Wallet.
-  - `blobId` is currently only tracked in the frontend session; it is not yet
-    written into the on-chain struct, so restored tickets do not show Walrus
-    links (only tickets minted during this session do). This is explicitly
-    planned as a follow-up change.
+  - On reconnect, the app queries Sui for all
+    `namitix_ticket::Ticket { id, event_id, owner, blob_id }` objects owned by
+    the connected address and restores them into My Wallet, decoding both the
+    `event_id` and `blob_id` fields.
+  - Existing tickets minted **before** the Walrus integration upgrade may have
+    an empty `blob_id` field; these tickets appear in the wallet but do not
+    show a Walrus blob id in the UI. Newly minted tickets store `blobId` both
+    on-chain and in the frontend.
 
 - **What is planned next (post-hackathon)**
-  - Persist Walrus `blobId` on-chain so any wallet can reconstruct the full
-    Sui↔Walrus link just from on-chain data.
+  - Extend the on-chain `Ticket` or related objects with additional provenance
+    fields (e.g. tx digest or issuer metadata) so explorers and third-party
+    wallets can reconstruct even richer views from on-chain data alone.
   - Integrate Seal for client-side encryption of metadata before Walrus
     storage, and decryption on reveal.
   - Add Nautilus jobs that aggregate ticket data and power an organizer

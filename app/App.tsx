@@ -167,6 +167,27 @@ export default function App({ initialView = "browse" }: AppProps) {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const [showWalletNotice, setShowWalletNotice] = useState(false);
 
+  // Keyed by wallet address so different wallets don't mix tickets
+  const storageKey = currentAccount
+    ? `namitix-tickets-${currentAccount.address}`
+    : null;
+
+  // Hydrate tickets from localStorage when a wallet connects.
+  useEffect(() => {
+    if (!storageKey) return;
+
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Ticket[];
+      if (Array.isArray(parsed)) {
+        setTickets(parsed);
+      }
+    } catch (error) {
+      console.error("Failed to hydrate tickets from localStorage", error);
+    }
+  }, [storageKey]);
+
   const handleBuyTicket = async (event: Event) => {
     if (!currentAccount) {
       setShowWalletNotice(true);
@@ -174,23 +195,45 @@ export default function App({ initialView = "browse" }: AppProps) {
     }
 
     setShowWalletNotice(false);
+    // 1. Prepare local ticket draft (without txDigest yet)
+    const baseTicket: Ticket = {
+      id: `${event.id}-${Date.now().toString(36).toUpperCase()}`,
+      eventId: event.id,
+      purchaseDate: new Date().toISOString(),
+      ownerAddress: currentAccount.address,
+      isRevealed: false,
+    };
 
-    // 1. Start Sui on-chain transaction on testnet (mint Namitix ticket object)
+    // 2. Store metadata in Walrus first to obtain a real blobId
+    setProcessingStep("walrus");
+
+    let blobId: string | undefined;
+    try {
+      const metadata = toTicketMetadata(baseTicket);
+      blobId = await storeTicketMetadata(metadata);
+    } catch (error) {
+      console.error("Walrus storage failed", error);
+      setProcessingStep("idle");
+      return;
+    }
+
+    // 3. Mint the Sui ticket, passing blobId bytes into the Move contract
     setProcessingStep("sui");
 
     let txDigest: string | undefined;
     try {
       const tx = new Transaction();
-      // Encode event id and (for now) empty blob id as bytes for the Move function
       const eventIdBytes = Array.from(new TextEncoder().encode(event.id));
-      const emptyBlobIdBytes: number[] = [];
+      const blobIdBytes = blobId
+        ? Array.from(new TextEncoder().encode(blobId))
+        : [];
 
       tx.moveCall({
         target:
           "0x66e74e301666655b56fd4f9366a6e883669442f763557824969bf5a247d14eb6::namitix_ticket::mint_ticket",
         arguments: [
           tx.pure.vector("u8", eventIdBytes),
-          tx.pure.vector("u8", emptyBlobIdBytes),
+          tx.pure.vector("u8", blobIdBytes),
         ],
       });
 
@@ -206,33 +249,17 @@ export default function App({ initialView = "browse" }: AppProps) {
       return;
     }
 
-    // 2. Walrus storage: prepare metadata and try to store it via Walrus client
-    const baseTicket: Ticket = {
-      id: `${event.id}-${Date.now().toString(36).toUpperCase()}`,
-      eventId: event.id,
-      purchaseDate: new Date().toISOString(),
-      ownerAddress: currentAccount.address,
-      isRevealed: false,
-      txDigest,
-    };
-
-    let blobId: string | undefined;
-    try {
-      const metadata = toTicketMetadata(baseTicket);
-      blobId = await storeTicketMetadata(metadata);
-    } catch (error) {
-      console.error("Walrus storage failed", error);
-    }
-
-    // 3. Simulate Walrus step in UI, then add ticket with optional blobId
+    // 4. Simulate finalization in UI, then add ticket with txDigest + blobId
     setProcessingStep("walrus");
 
     setTimeout(() => {
       const newTicket: Ticket = {
         ...baseTicket,
         blobId,
+        txDigest,
       };
 
+      console.log("[Namitix] NEW TICKET", newTicket);
       setTickets((prev) => [...prev, newTicket]);
       setProcessingStep("complete");
 
@@ -276,6 +303,11 @@ export default function App({ initialView = "browse" }: AppProps) {
             ? new TextDecoder().decode(Uint8Array.from(eventIdBytes))
             : "";
 
+          const blobIdBytes = fields.blob_id as number[] | undefined;
+          const blobId = blobIdBytes
+            ? new TextDecoder().decode(Uint8Array.from(blobIdBytes))
+            : undefined;
+
           const matchingEvent = MOCK_EVENTS.find((e) => e.id === eventId);
           if (!matchingEvent) continue;
 
@@ -285,8 +317,7 @@ export default function App({ initialView = "browse" }: AppProps) {
             purchaseDate: new Date().toISOString(),
             ownerAddress: currentAccount.address,
             isRevealed: false,
-            // We currently do not store txDigest/blobId on-chain; they are
-            // only available for newly purchased tickets in this session.
+            blobId,
           });
         }
 
@@ -309,6 +340,17 @@ export default function App({ initialView = "browse" }: AppProps) {
 
     loadTickets();
   }, [currentAccount, suiClient]);
+
+  // Persist tickets to localStorage whenever they change for the current wallet.
+  useEffect(() => {
+    if (!storageKey) return;
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(tickets));
+    } catch (error) {
+      console.error("Failed to persist tickets to localStorage", error);
+    }
+  }, [storageKey, tickets]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-200/40">

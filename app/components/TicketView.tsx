@@ -60,14 +60,9 @@ export const TicketView: React.FC<TicketViewProps> = ({ ticket, event }) => {
         </div>
         <div className="text-xs text-slate-500 font-mono break-all">ID: {ticket.id}</div>
         {ticket.blobId && (
-          <a
-            href={getWalrusBlobUrl(ticket.blobId)}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 block text-[10px] text-teal-600 hover:text-teal-700 font-mono break-all underline-offset-2 hover:underline"
-          >
-            BLOB: {ticket.blobId}
-          </a>
+          <div className="mt-1 text-[10px] text-slate-600 font-mono break-all">
+            <span className="font-semibold">Blob id :</span> {ticket.blobId}
+          </div>
         )}
       </div>
 
