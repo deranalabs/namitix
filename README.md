@@ -17,9 +17,9 @@ ticket wallet.
 
 - App (local dev): http://localhost:3000
 - GitHub repository: https://github.com/deranalabs/namitix
-- Live demo (if deployed): _add Vercel URL here_
-- Example Sui transaction: _add a real tx link here before submission_
-- Example Walrus blob: _add a real Walrus aggregator URL here before submission_
+- Live demo: https://namitix.vercel.app/
+- Example Sui transaction: https://testnet.suivision.xyz/txblock/Casnur7iMgvp7hicJ2oDXcbTayummBvs6wAdbnQhY7fu
+- Example Walrus blob: https://testnet.suivision.xyz/package/0x66e74e301666655b56fd4f9366a6e883669442f763557824969bf5a247d14eb6
 
 ---
 
