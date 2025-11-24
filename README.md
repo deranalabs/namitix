@@ -1,13 +1,13 @@
 # Namitix – Encrypted Tickets on Sui + Walrus
 
-Namitix is a minimal ticketing dApp built for the **Walrus Haulout Hackathon**.
-It showcases an end-to-end flow where each ticket purchase:
+Namitix is a focused ticketing dApp built for the **Walrus Haulout Hackathon**.
+It demonstrates an end-to-end flow where each ticket purchase:
 
 - Mints a `Ticket` object on **Sui testnet** via a custom Move module.
 - Stores ticket metadata as a JSON blob on **Walrus**.
 - Verifies and displays the metadata on ticket reveal.
 
-The goal is to demonstrate **data security and verifiable storage** by combining
+The goal is to showcase **data security and verifiable storage** by combining
 Sui smart contracts with Walrus blobs, with a UX that feels like a modern event
 ticket wallet.
 
@@ -17,7 +17,7 @@ ticket wallet.
 
 - App (local dev): http://localhost:3000
 - GitHub repository: https://github.com/deranalabs/namitix
-- Detailed build notes: [`Build.md`](./Build.md)
+- Live demo (if deployed): _add Vercel URL here_
 - Example Sui transaction: _add a real tx link here before submission_
 - Example Walrus blob: _add a real Walrus aggregator URL here before submission_
 
@@ -120,7 +120,8 @@ ticket wallet.
 - **Storage**: Walrus publisher + aggregator HTTP APIs on testnet.
 
 For deeper architectural notes and development phases (including plans for
-Seal encryption and Nautilus analytics jobs), see [`Build.md`](./Build.md).
+Seal encryption and Nautilus analytics jobs), see the **Future Work** section
+below.
 
 ---
 
@@ -166,3 +167,52 @@ If these are not set, the defaults above are used.
   dashboard (unique wallets, tickets per event, etc.).
 - **Organizer & check-in tools** – a verifier/check-in view that uses the
   ticket id, Sui tx digest, and Walrus blob to validate tickets at the door.
+
+---
+
+## Submission Notes (for Walrus Haulout judges)
+
+- **Hackathon track fit**
+  - Primary: **Data Security & Privacy**.
+  - Also relevant: **Provably Authentic** (verifiable blobs linking to on-chain
+    tickets).
+
+- **What is implemented now**
+  - Real Sui Move contract (`namitix_ticket::Ticket` + `mint_ticket`) deployed
+    on **Sui testnet**.
+  - Frontend calls this contract via `@mysten/dapp-kit` and displays tx digests
+    with explorer links.
+  - Ticket metadata JSON is uploaded to **Walrus testnet** publisher, and
+    `blobId` is stored alongside the ticket in the UI.
+  - My Wallet shows QR codes and a status `METADATA VERIFIED` when Walrus
+    metadata fetch succeeds.
+  - A `/app/verify` page lets organizers/auditors paste a `blobId` and confirm
+    that the blob exists on the Walrus aggregator.
+
+- **What is partially implemented**
+  - On reconnect, the app queries Sui for all `namitix_ticket::Ticket` objects
+    owned by the connected address and restores them into My Wallet.
+  - `blobId` is currently only tracked in the frontend session; it is not yet
+    written into the on-chain struct, so restored tickets do not show Walrus
+    links (only tickets minted during this session do). This is explicitly
+    planned as a follow-up change.
+
+- **What is planned next (post-hackathon)**
+  - Persist Walrus `blobId` on-chain so any wallet can reconstruct the full
+    Sui↔Walrus link just from on-chain data.
+  - Integrate Seal for client-side encryption of metadata before Walrus
+    storage, and decryption on reveal.
+  - Add Nautilus jobs that aggregate ticket data and power an organizer
+    analytics dashboard.
+
+- **How to evaluate the project quickly**
+  1. Run the app locally (or open the deployed URL) and connect a Sui testnet
+     wallet with some test SUI.
+  2. Go to `/app` and purchase a ticket; confirm the Sui tx in your wallet.
+  3. Open `/app/tickets` and verify that:
+     - A new ticket appears with a tx digest and a Walrus BLOB link.
+     - `Reveal QR` leads to `METADATA VERIFIED` once Walrus responds.
+  4. Copy the blobId into `/app/verify` and confirm that Walrus returns 200 and
+     that `Open blob` shows the raw JSON metadata.
+  5. Optionally, reconnect the wallet and confirm that existing on-chain
+     tickets are rediscovered in My Wallet.
